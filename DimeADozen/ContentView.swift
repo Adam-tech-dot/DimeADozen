@@ -106,7 +106,7 @@ struct SetUp: View {
     }
 }
 
-// The main page. Get to see purchases as well as seeing the where you are in the budget
+// The main page. Get to see purchases as well as seeing where you are in the budget
 struct MainPage: View {
     @ObservedObject var budgetManager: BudgetManager
 
@@ -228,6 +228,7 @@ struct MainPage: View {
         }
     }
 
+    // Will show the 5 most recent purchases
     private var recentPurchases: [Dictionary<String, Double>.Element] {
         Array(budgetManager.purchases.sorted { $0.key > $1.key }.prefix(5))
     }
@@ -245,6 +246,7 @@ struct MainPage: View {
     }
 }
 
+// Allows the user to see their purchases and add new ones
 struct RecentPurchase: View {
     @ObservedObject var budgetManager: BudgetManager
     @State private var itemName: String = ""
@@ -357,7 +359,7 @@ struct RecentPurchase: View {
     }
 }
 
-
+// Allows the user to input an item and its price.
 struct EnterPurchase: View {
     @Binding var purchases: [String: Double]
     @Binding var remainingBudget: Int
@@ -459,6 +461,7 @@ struct EnterPurchase: View {
     }
 }
 
+// Allows the user to see a graph of their purchases.
 struct GraphView: View {
     @ObservedObject var budgetManager: BudgetManager
 
