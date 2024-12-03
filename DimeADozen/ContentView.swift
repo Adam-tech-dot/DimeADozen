@@ -4,18 +4,12 @@
 //
 //  Created by Adam J Mosher on 10/29/24.
 //
-//Notes as of 11/26: I HATE BUTTONS!!!!! - Adam :)
-
-
-// TODO:
-// Make a Monthly Subscription screen
-// Make a Graph Screen
 
 
 import SwiftUI
-import Combine
 import Charts
 
+// Class dedicated to manage the budget and update the current budget
 class BudgetManager: ObservableObject {
     @Published var budget: Int
     @Published var remainingBudget: Int
@@ -33,20 +27,23 @@ class BudgetManager: ObservableObject {
     }
 }
 
+// Startup screen to welcome the user to DimeADozen
 struct ContentView: View {
-    @StateObject private var budgetManager = BudgetManager(budget: 1000) // Example starting budget
+    @StateObject private var budgetManager = BudgetManager(budget: 0)
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.green.edgesIgnoringSafeArea(.all)
+                Color.green
+                    .edgesIgnoringSafeArea(.all)
+                
                 VStack {
                     Text("Welcome to DimeADozen.")
                         .font(.title)
                         .bold()
                         .padding()
 
-                    NavigationLink(destination: MainPage(budgetManager: budgetManager)) {
+                    NavigationLink(destination: SetUp(budgetManager: budgetManager)) {
                         Text("Get Started")
                             .font(.headline)
                             .foregroundColor(.white)
@@ -61,69 +58,63 @@ struct ContentView: View {
     }
 }
 
+// Allows the user to add a budget and stores that value in the BudgetManager class
 struct SetUp: View {
+    @ObservedObject var budgetManager: BudgetManager
     @State private var budgetInput: String = ""
-    @State private var budget: Int? = nil
-    @State private var isNavigating: Bool = false
+    @State private var navigateToMainPage: Bool = false
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.green.edgesIgnoringSafeArea(.all)
+                Color.green
+                    .edgesIgnoringSafeArea(.all)
 
                 VStack(spacing: 20) {
-                    Text("Let us set up a budget.")
-                        .padding()
+                    Text("Set Up Your Budget")
                         .font(.title)
                         .bold()
-
-                    Text("You can always change this later.")
                         .padding()
 
                     TextField("Enter your budget", text: $budgetInput)
                         .textFieldStyle(.roundedBorder)
                         .keyboardType(.numberPad)
-                        .frame(width: 300)
                         .padding()
 
                     Button(action: {
                         if let validBudget = Int(budgetInput) {
-                            budget = validBudget
-                            isNavigating = true
+                            budgetManager.budget = validBudget
+                            budgetManager.remainingBudget = validBudget
+                            navigateToMainPage = true // Trigger navigation
                         }
                     }) {
                         Text("Submit")
                             .font(.headline)
                             .foregroundColor(.white)
                             .padding()
-                            .frame(width: .infinity)
                             .background(budgetInput.isEmpty ? Color.gray : Color.black)
                             .cornerRadius(10)
                             .shadow(radius: 5)
                     }
                     .disabled(budgetInput.isEmpty)
-                    .padding(.horizontal)
                 }
-                .navigationDestination(isPresented: $isNavigating) {
-                    if let validBudget = budget {
-                        // Create a BudgetManager instance and pass it to MainPage
-                        MainPage(budgetManager: BudgetManager(budget: validBudget))
-                    } else {
-                        EmptyView()
-                    }
+                .navigationDestination(isPresented: $navigateToMainPage) {
+                    MainPage(budgetManager: budgetManager)
                 }
             }
         }
     }
 }
 
+// The main page. Get to see purchases as well as seeing the where you are in the budget
 struct MainPage: View {
     @ObservedObject var budgetManager: BudgetManager
 
     var body: some View {
         NavigationStack {
             ZStack {
-                Color.green.edgesIgnoringSafeArea(.all)
+                Color.green
+                    .edgesIgnoringSafeArea(.all)
 
                 VStack(spacing: 20) {
                     VStack(alignment: .leading, spacing: 10) {
@@ -134,6 +125,7 @@ struct MainPage: View {
                             .font(.largeTitle)
                             .bold()
 
+                        // Bar dedicated to visually show where the user is on their budget
                         GeometryReader { geometry in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 10)
@@ -154,6 +146,7 @@ struct MainPage: View {
                             .cornerRadius(10)
                             .shadow(radius: 5)
 
+                        // Shows recent purchases
                         VStack(alignment: .leading, spacing: 10) {
                             Text("Recent Purchases")
                                 .font(.headline)
@@ -212,11 +205,15 @@ struct MainPage: View {
                             }
                         }
 
-                        NavigationLink(destination: Text("Bar Graph")) {
+                        NavigationLink(destination: GraphView(budgetManager: budgetManager)) {
                             VStack {
                                 Image(systemName: "chart.bar.fill")
                                     .font(.system(size: 30))
                                     .foregroundColor(.white)
+                                
+                                Text("Graph")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
                             }
                         }
                     }
@@ -227,6 +224,7 @@ struct MainPage: View {
                 }
                 .padding()
             }
+            .navigationTitle("Home")
         }
     }
 
@@ -254,112 +252,119 @@ struct RecentPurchase: View {
     @State private var errorMessage: String? = nil
 
     var body: some View {
-        ZStack {
-            Color.green
-                .ignoresSafeArea(.all)
+        NavigationStack {
+            ZStack {
+                Color.green
+                    .ignoresSafeArea(.all)
 
-            VStack(spacing: 20) {
-                ZStack {
-                    Color.black
+                VStack(spacing: 20) {
+                    ZStack {
+                        Color.black
                     
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("Recent Purchases")
+                        VStack(alignment: .leading, spacing: 10) {
+                            Text("Purchases")
+                                .font(.headline)
+                                .foregroundColor(.white)
+                                .padding([.top, .horizontal])
+
+                            if budgetManager.purchases.isEmpty {
+                                Text("No purchases yet.")
+                                    .foregroundColor(.gray)
+                                    .padding(.horizontal)
+                            } else {
+                                ForEach(Array(recentPurchases), id: \.key) { purchase in
+                                    HStack {
+                                        Text(purchase.key)
+                                            .foregroundColor(.white)
+                                            .bold()
+
+                                        Spacer()
+
+                                        Text("$\(String(format: "%.2f", purchase.value))")
+                                            .foregroundColor(.white)
+                                    }
+                                    .padding(.horizontal)
+                                }
+                            }
+                        }
+                        .padding(.vertical)
+                    }
+
+                    // "Add Purchase" Button
+                    NavigationLink(destination: EnterPurchase(purchases: $budgetManager.purchases, remainingBudget: $budgetManager.remainingBudget)) {
+                        Text("Add Purchase")
                             .font(.headline)
                             .foregroundColor(.white)
-                            .padding([.top, .horizontal])
+                            .padding()
+                            .background(Color.black)
+                            .cornerRadius(10)
+                            .shadow(radius: 5)
+                            .padding(.horizontal)
+                    }
 
-                        if budgetManager.purchases.isEmpty {
-                            Text("No purchases yet.")
-                                .foregroundColor(.gray)
-                                .padding(.horizontal)
-                        } else {
-                            ForEach(Array(recentPurchases), id: \.key) { purchase in
-                                HStack {
-                                    Text(purchase.key)
-                                        .foregroundColor(.white)
-                                        .bold()
+                    Spacer()
 
-                                    Spacer()
+                    HStack(spacing: 20) {
+                        NavigationLink(destination: MainPage(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "house.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+                                
+                                Text("Home")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
+                            }
+                        }
 
-                                    Text("$\(String(format: "%.2f", purchase.value))")
-                                        .foregroundColor(.white)
-                                }
-                                .padding(.horizontal)
+                        NavigationLink(destination: RecentPurchase(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "cart.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+
+                                Text("Purchases")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
+                            }
+                        }
+
+                        NavigationLink(destination: GraphView(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "chart.bar.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+                                
+                                Text("Graph")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
                             }
                         }
                     }
-                    .padding(.vertical)
-                }
-
-                // "Add Purchase" Button
-                NavigationLink(destination: EnterPurchase(purchases: $budgetManager.purchases, remainingBudget: $budgetManager.remainingBudget)) {
-                    Text("Add Purchase")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .background(Color.black)
-                        .cornerRadius(10)
-                        .shadow(radius: 5)
-                        .padding(.horizontal)
-                }
-
-                Spacer()
-
-                // Navigation Links (Home, Purchases, Bar Graph)
-                HStack(spacing: 20) {
-                    NavigationLink(destination: MainPage(budgetManager: budgetManager)) {
-                        VStack {
-                            Image(systemName: "house.fill")
-                                .font(.system(size: 30))
-                                .foregroundColor(.white)
-                            
-                            Text("Home")
-                                .foregroundColor(.white)
-                                .font(.caption)
-                        }
-                    }
-
-                    NavigationLink(destination: RecentPurchase(budgetManager: budgetManager)) {
-                        VStack {
-                            Image(systemName: "cart.fill")
-                                .font(.system(size: 30))
-                                .foregroundColor(.white)
-
-                            Text("Purchases")
-                                .foregroundColor(.white)
-                                .font(.caption)
-                        }
-                    }
-
-                    NavigationLink(destination: Text("Bar Graph")) {
-                        VStack {
-                            Image(systemName: "chart.bar.fill")
-                                .font(.system(size: 30))
-                                .foregroundColor(.white)
-                        }
-                    }
+                    .padding()
+                    .background(Color.black)
+                    .cornerRadius(10)
+                    .shadow(radius: 5)
                 }
                 .padding()
-                .background(Color.black)
-                .cornerRadius(10)
-                .shadow(radius: 5)
             }
-            .padding()
+            .navigationTitle("Purchases") // Set the title to "Purchases"
         }
     }
 
     private var recentPurchases: [Dictionary<String, Double>.Element] {
-        Array(budgetManager.purchases.sorted { $0.key > $1.key }.prefix(5))
+        Array(budgetManager.purchases.sorted { $0.key > $1.key })
     }
 }
 
+
 struct EnterPurchase: View {
-    @Binding var purchases: [String: Double] // Binding to update the purchases dictionary
-    @Binding var remainingBudget: Int // Binding to update the remaining budget
-    @State private var itemName: String = "" // Item name input
-    @State private var itemPrice: String = "" // Item price input (as string for text field compatibility)
-    @State private var errorMessage: String? = nil // Error message for invalid inputs
-    @Environment(\.dismiss) private var dismiss // Environment action for dismissing the view
+    @Binding var purchases: [String: Double]
+    @Binding var remainingBudget: Int
+    @State private var itemName: String = ""
+    @State private var itemPrice: String = ""
+    @State private var errorMessage: String? = nil
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         ZStack {
@@ -367,13 +372,11 @@ struct EnterPurchase: View {
                 .ignoresSafeArea(.all)
 
             VStack(spacing: 20) {
-                // Title
                 Text("Enter New Purchase")
                     .font(.title)
                     .bold()
-                    .foregroundColor(.white)
+                    .foregroundColor(.black)
 
-                // Input fields for item name and price
                 VStack(spacing: 10) {
                     TextField("Item Name", text: $itemName)
                         .textFieldStyle(.roundedBorder)
@@ -393,14 +396,12 @@ struct EnterPurchase: View {
                         .padding(.horizontal)
                 }
 
-                // Error message display
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
                         .foregroundColor(.red)
                         .font(.footnote)
                 }
 
-                // Submit button to add the purchase
                 Button(action: {
                     addPurchase()
                 }) {
@@ -415,9 +416,8 @@ struct EnterPurchase: View {
                         .padding(.horizontal)
                 }
 
-                // Back button to dismiss and go back to the previous view
                 Button(action: {
-                    dismiss() // Dismiss the current view
+                    dismiss()
                 }) {
                     Text("Back to Purchases")
                         .font(.headline)
@@ -433,8 +433,8 @@ struct EnterPurchase: View {
             .padding()
         }
     }
-
-    // Function to add purchase
+    
+    // Add the purchase and subtract from the budget
     private func addPurchase() {
         guard !itemName.isEmpty else {
             errorMessage = "Item name cannot be empty."
@@ -451,7 +451,6 @@ struct EnterPurchase: View {
             return
         }
 
-        // Add the purchase and subtract from the budget
         purchases[itemName] = price
         remainingBudget -= Int(price)
         errorMessage = nil
@@ -460,7 +459,90 @@ struct EnterPurchase: View {
     }
 }
 
-// Preview
+struct GraphView: View {
+    @ObservedObject var budgetManager: BudgetManager
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.green
+                    .edgesIgnoringSafeArea(.all)
+            
+                VStack {
+                    Text("Purchases Breakdown")
+                        .font(.headline)
+                        .padding()
+
+                    if budgetManager.purchases.isEmpty {
+                        Text("No purchases to display.")
+                            .foregroundColor(.gray)
+                    } else {
+                        Chart {
+                            ForEach(budgetManager.purchases.sorted(by: { $0.value > $1.value }), id: \.key) { item, price in
+                                BarMark(
+                                    x: .value("Item", item),
+                                    y: .value("Price", price)
+                                )
+                                .foregroundStyle(Color.black)
+                            }
+                        }
+                        .frame(height: 300)
+                        .padding()
+                    }
+
+                    Spacer()
+
+                    HStack(spacing: 20) {
+                        NavigationLink(destination: MainPage(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "house.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+                                
+                                Text("Home")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
+                            }
+                        }
+                        
+                        NavigationLink(destination: RecentPurchase(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "cart.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+
+                                Text("Purchases")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
+                            }
+                        }
+
+                        NavigationLink(destination: GraphView(budgetManager: budgetManager)) {
+                            VStack {
+                                Image(systemName: "chart.bar.fill")
+                                    .font(.system(size: 30))
+                                    .foregroundColor(.white)
+                                
+                                Text("Graph")
+                                    .foregroundColor(.white)
+                                    .font(.caption)
+                            }
+                        }
+                    }
+                    .padding()
+                    .background(Color.black)
+                    .cornerRadius(10)
+                    .shadow(radius: 5)
+                    .padding(.bottom)  // Adjust padding if necessary
+                }
+                .padding()
+            }
+            .navigationTitle("Graph")
+        }
+    }
+}
+
+
 #Preview {
     ContentView()
 }
